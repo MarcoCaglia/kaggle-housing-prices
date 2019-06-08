@@ -1,6 +1,9 @@
 import numpy as np
 
-def rmsle(labels,predictions):
+def rmsle(labels,predictions,exponential_transformation=False):
+    if exponential_transformation:
+        labels = np.exp(labels)
+        predictions = np.exp(predictions)
     root_mean_squared_error = np.mean((np.log(labels)-np.log(predictions))**2)**0.5
 
     return root_mean_squared_error
