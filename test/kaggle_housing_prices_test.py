@@ -6,11 +6,14 @@ import pandas as pd
 import pytest
 import lorem
 
-from kaggle_housing_prices.process.feature_engineering import BaseFeatureEngineer
+from kaggle_housing_prices.process.feature_engineering import (
+    BaseFeatureEngineer,
+    BayesianEncodingFeatureEngineer,
+)
 from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
-FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = []
+FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [BayesianEncodingFeatureEngineer]
 
 RANDOM_SEED = 42
 RNG = np.random.default_rng(seed=RANDOM_SEED)
@@ -21,9 +24,9 @@ class CommonTestFixtures:
 
     INT_FEATURE_NAME = "int_feature"
     FLOAT_FEATURE_NAME = "float_feature"
-    STRING_FEATURE_NAME = "string_feature"
+    CATEGORICAL_FEATURE_NAME = "string_feature"
     NUM_RANGE = (0, 1_000)
-    STRINGS = lorem.data.WORDS
+    CATEGORIES = lorem.data.WORDS[:5]
     NUM_SAMPLES = 1_000
 
     @pytest.fixture(scope="class")
@@ -31,7 +34,7 @@ class CommonTestFixtures:
         """Simulate sample houses."""
         mock_data = [
             [
-                RNG.choice(self.STRINGS),
+                RNG.choice(self.CATEGORIES),
                 np.int16(RNG.uniform(*self.NUM_RANGE)),
                 np.float16(RNG.uniform(*self.NUM_RANGE)),
             ]
@@ -41,11 +44,14 @@ class CommonTestFixtures:
         mock_df = pd.DataFrame(
             mock_data,
             columns=[
-                self.STRING_FEATURE_NAME,
+                self.CATEGORICAL_FEATURE_NAME,
                 self.INT_FEATURE_NAME,
                 self.FLOAT_FEATURE_NAME,
             ],
         )
+        mock_df[self.CATEGORICAL_FEATURE_NAME] = mock_df[
+            self.CATEGORICAL_FEATURE_NAME
+        ].astype("category")
 
         return mock_df
 
@@ -96,9 +102,9 @@ class TestFeatureEngineering(CommonTestFixtures):
     """Test basic functionality of feature engineering."""
 
     @pytest.fixture(scope="class")
-    def fit_instance(self, request, mock_features, mock_labels):
+    def fit_instance(self, request, mock_features, mock_prices):
         """Fit feature engineer instance."""
-        instance = request.param().fit(mock_features, mock_labels)
+        instance = request.param().fit(mock_features, mock_prices)
 
         return instance
 
@@ -108,23 +114,10 @@ class TestFeatureEngineering(CommonTestFixtures):
         assert isinstance(fit_instance, BaseFeatureEngineer)
 
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def transform_returns_numpy_array_test(self, fit_instance, mock_features):
+    def transform_returns_pandas_df_array_test(self, fit_instance, mock_features):
         """Assert, that transform returns a numpy array."""
-        actual = fit_instance.transform(mock_features)
+        actual, report = fit_instance.transform(mock_features)
 
-        assert isinstance(actual, np.ndarray)
-        assert actual.dtype == np.float32
-
-    @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def get_score_returns_dict_test(self, fit_instance, mock_features, mock_labels):
-        """Assert, that get_score returns a dictionary."""
-        actual = fit_instance.get_score(mock_features, mock_labels)
-
-        assert isinstance(actual, dict)
-
-    @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def get_report_returns_dict_test(self, fit_instance):
-        """Assert, that get_score returns a dictionary."""
-        actual = fit_instance.get_report()
-
-        assert isinstance(actual, dict)
+        assert isinstance(actual, pd.DataFrame)
+        assert actual.to_numpy().dtype == np.float32
+        assert isinstance(report, dict)
