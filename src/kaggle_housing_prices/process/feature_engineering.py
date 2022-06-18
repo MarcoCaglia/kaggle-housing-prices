@@ -16,6 +16,8 @@ class BaseFeatureEngineer(ABC):
     @abstractmethod
     def __init__(self, **kwargs) -> None:
         """Initialize FeatureEngineer."""
+        # The report will be populated as part of the fitting process
+        self.report: Dict[str, Any]
 
     @abstractmethod
     def fit(
@@ -63,3 +65,4 @@ class BaseFeatureEngineer(ABC):
         Returns:
             Dict[str, Any]: Dictionary of metric name and metric value(s).
         """
+        return self.report
