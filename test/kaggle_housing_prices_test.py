@@ -7,9 +7,9 @@ import pytest
 import lorem
 
 from kaggle_housing_prices.process.feature_engineering import BaseFeatureEngineer
-from kaggle_housing_prices.process.preprocessing import BasePreprocessor
+from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
 
-PREPROCESSORS_TO_TEST: List[BasePreprocessor] = []
+PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
 FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = []
 
 RANDOM_SEED = 42
@@ -57,10 +57,10 @@ class CommonTestFixtures:
         return prices
 
     @pytest.fixture(scope="class")
-    def mock_features_with_missing_values(self, mock_input):
+    def mock_features_with_missing_values(self, mock_features):
         """Simulate raw input data with missing values."""
-        mock_features_missing = mock_input.applymap(
-            lambda value: np.NaN if RNG.unfiorm() < 0.1 else value
+        mock_features_missing = mock_features.applymap(
+            lambda value: np.NaN if RNG.uniform() < 0.1 else value
         )
 
         return mock_features_missing
@@ -70,9 +70,9 @@ class TestPreprocessing(CommonTestFixtures):
     """Test basic functionality of preprocessor."""
 
     @pytest.fixture(scope="class")
-    def fit_test_instance(self, request, mock_features_with_missing_labels):
+    def fit_instance(self, request, mock_features_with_missing_values):
         """Generate a fit instance of preprocessor."""
-        instance = request.param().fit(mock_features_with_missing_labels)
+        instance = request.param().fit(mock_features_with_missing_values)
 
         return instance
 
@@ -108,17 +108,17 @@ class TestFeatureEngineering(CommonTestFixtures):
         assert isinstance(fit_instance, BaseFeatureEngineer)
 
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def transform_returns_numpy_array_test(self, fit_instance, mock_input):
+    def transform_returns_numpy_array_test(self, fit_instance, mock_features):
         """Assert, that transform returns a numpy array."""
-        actual = fit_instance.transform(mock_input)
+        actual = fit_instance.transform(mock_features)
 
         assert isinstance(actual, np.ndarray)
         assert actual.dtype == np.float32
 
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def get_score_returns_dict_test(self, fit_instance, mock_input, mock_labels):
+    def get_score_returns_dict_test(self, fit_instance, mock_features, mock_labels):
         """Assert, that get_score returns a dictionary."""
-        actual = fit_instance.get_score(mock_input, mock_labels)
+        actual = fit_instance.get_score(mock_features, mock_labels)
 
         assert isinstance(actual, dict)
 
