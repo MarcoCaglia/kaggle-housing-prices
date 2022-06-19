@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_squared_error, mean_squared_log_error, r2_score
 
 
 class BaseRegressor(ABC):
@@ -51,3 +54,81 @@ class BaseRegressor(ABC):
             Tuple[npt.NDArray[np.float32], Any]: Tuple of predicted values and
                 regression metrics.
         """
+
+
+class SklearnRegressor(BaseRegressor):
+    """Regression using sklearn implementations."""
+
+    def __init__(
+        self, regression_method: BaseEstimator = GradientBoostingRegressor(), **kwargs
+    ) -> None:
+        """Initialize SklearnRegressor with regression_method.
+
+        Keyword arguments are passed to the regression method.
+
+        Args:
+            regression_method (BaseEstimator, optional): Sklearn class to use
+                for regression. Defaults to GradientBoostingRegressor().
+        """
+        self.method = regression_method.set_params(
+            **{
+                key: value
+                for key, value in kwargs.items()
+                if key in list(regression_method.get_params().keys())
+            }
+        )
+
+    def fit(  # noqa
+        self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
+    ) -> BaseRegressor:
+        self.method.fit(X, y)
+
+        return self
+
+    def predict(  # noqa
+        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
+    ) -> Tuple[npt.NDArray[np.float32], Any]:
+        y_hat = self.method.predict(X)
+
+        # Get reports
+        independent_report = self._get_independent_report(y_hat)
+        if y is not None:
+            dependent_report = self._get_dependent_report(y_hat, y)
+        else:
+            dependent_report = {}
+
+        # Compile full report
+        report = {**independent_report, **dependent_report}
+
+        return y_hat, report
+
+    def _get_independent_report(self, y_hat: npt.NDArray[np.float32]) -> Dict[str, Any]:
+        # Get report solely based on prediction.
+        report = {}
+
+        # Get basic statistics of prediction
+        report["predicted_mean"] = np.mean(y_hat)
+        report["predicted_std"] = np.std(y_hat)
+
+        return report
+
+    def _get_dependent_report(
+        self, y_hat: npt.NDArray[np.float32], y: npt.NDArray[np.float32]
+    ) -> Dict[str, Any]:
+        # Get report based on combination of observed and predicted labels
+        report = {}
+
+        # Get observed basic statistics
+        report["observed_mean"] = np.mean(y)
+        report["observed_std"] = np.std(y)
+
+        # Get residuals
+        report["residuals"] = y - y_hat
+
+        # Get Quality metrics
+        report["r2"] = r2_score(y, y_hat)
+        report["mse"] = mean_squared_error(y, y_hat)
+        report["msle"] = mean_squared_log_error(y, y_hat)
+        report["root_msle"] = report.get("msle") ** (1 / 2)
+
+        return report

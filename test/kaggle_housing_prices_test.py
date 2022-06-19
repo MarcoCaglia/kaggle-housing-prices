@@ -11,12 +11,12 @@ from kaggle_housing_prices.process.feature_engineering import (
     BayesianEncodingFeatureEngineer,
 )
 from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
-from kaggle_housing_prices.process.regression import BaseRegressor
+from kaggle_housing_prices.process.regression import BaseRegressor, SklearnRegressor
 from sklearn.datasets import make_regression
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
 FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [BayesianEncodingFeatureEngineer]
-REGRESSORS_TO_TEST: List[BaseRegressor] = []
+REGRESSORS_TO_TEST: List[BaseRegressor] = [SklearnRegressor]
 
 RANDOM_SEED = 42
 RNG = np.random.default_rng(seed=RANDOM_SEED)
@@ -76,16 +76,18 @@ class CommonTestFixtures:
         return mock_features_missing
 
     @pytest.fixture(scope="class")
-    def mock_engineered_features(self, mock_prices):
+    def mock_engineered_data(self, mock_prices):
         """Simulate engineered features."""
-        simulated_features = make_regression(
+        simulated_features, simulated_values = make_regression(
             n_samples=self.NUM_SAMPLES,
             n_features=self.NUM_ENGINEERED_FEATURES,
             n_informative=self.NUM_ENGINEERED_FEATURES,
             bias=np.mean(mock_prices),
         )
 
-        return simulated_features
+        simulated_features_df = pd.DataFrame(simulated_features)
+
+        return simulated_features_df, simulated_values
 
 
 class TestPreprocessing(CommonTestFixtures):
@@ -130,7 +132,7 @@ class TestFeatureEngineering(CommonTestFixtures):
         assert isinstance(fit_instance, BaseFeatureEngineer)
 
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def transform_returns_pandas_df_array_test(self, fit_instance, mock_features):
+    def transform_returns_pandas_df_test(self, fit_instance, mock_features):
         """Assert, that transform returns a numpy array."""
         actual, report = fit_instance.transform(mock_features)
 
@@ -143,9 +145,11 @@ class TestRegressor(CommonTestFixtures):
     """Test basic functionality of regressor."""
 
     @pytest.fixture(scope="class")
-    def fit_test_instance(self, request, mock_engineered_features, mock_prices):
+    def fit_test_instance(self, request, mock_engineered_data):
         """INstantiate regressor and fit."""
-        fit_instance = request.param().fit(mock_engineered_features, mock_prices)
+        fit_instance = request.param().fit(
+            mock_engineered_data[0], mock_engineered_data[1]
+        )
 
         return fit_instance
 
@@ -155,19 +159,21 @@ class TestRegressor(CommonTestFixtures):
         assert isinstance(fit_test_instance, BaseRegressor)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_with_labels_returns_tuple_of_prediction_and_report(
-        self, fit_test_instance, mock_engineered_features, mock_prices
+    def predict_with_labels_returns_tuple_of_prediction_and_report_test(
+        self, fit_test_instance, mock_engineered_data
     ):
         """Assert, that passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(mock_engineered_features, mock_prices)
+        actual, _ = fit_test_instance.predict(
+            mock_engineered_data[0], mock_engineered_data[1]
+        )
 
         assert isinstance(actual, np.ndarray)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_without_labels_returns_tuple_of_prediction_and_report(
-        self, fit_test_instance, mock_engineered_features, mock_prices
+    def predict_without_labels_returns_tuple_of_prediction_and_report_test(
+        self, fit_test_instance, mock_engineered_data
     ):
         """Assert, that not passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(mock_engineered_features, mock_prices)
+        actual, _ = fit_test_instance.predict(mock_engineered_data[0])
 
         assert isinstance(actual, np.ndarray)
