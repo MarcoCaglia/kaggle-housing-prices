@@ -1,19 +1,22 @@
 """Test module for feature engineering."""
 
 from typing import List
+
+import lorem
 import numpy as np
 import pandas as pd
 import pytest
-import lorem
-
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
     BayesianEncodingFeatureEngineer,
 )
 from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
+from kaggle_housing_prices.process.regression import BaseRegressor
+from sklearn.datasets import make_regression
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
 FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [BayesianEncodingFeatureEngineer]
+REGRESSORS_TO_TEST: List[BaseRegressor] = []
 
 RANDOM_SEED = 42
 RNG = np.random.default_rng(seed=RANDOM_SEED)
@@ -28,6 +31,7 @@ class CommonTestFixtures:
     NUM_RANGE = (0, 1_000)
     CATEGORIES = lorem.data.WORDS[:5]
     NUM_SAMPLES = 1_000
+    NUM_ENGINEERED_FEATURES = 10
 
     @pytest.fixture(scope="class")
     def mock_features(self):
@@ -70,6 +74,18 @@ class CommonTestFixtures:
         )
 
         return mock_features_missing
+
+    @pytest.fixture(scope="class")
+    def mock_engineered_features(self, mock_prices):
+        """Simulate engineered features."""
+        simulated_features = make_regression(
+            n_samples=self.NUM_SAMPLES,
+            n_features=self.NUM_ENGINEERED_FEATURES,
+            n_informative=self.NUM_ENGINEERED_FEATURES,
+            bias=np.mean(mock_prices),
+        )
+
+        return simulated_features
 
 
 class TestPreprocessing(CommonTestFixtures):
@@ -121,3 +137,37 @@ class TestFeatureEngineering(CommonTestFixtures):
         assert isinstance(actual, pd.DataFrame)
         assert actual.to_numpy().dtype == np.float32
         assert isinstance(report, dict)
+
+
+class TestRegressor(CommonTestFixtures):
+    """Test basic functionality of regressor."""
+
+    @pytest.fixture(scope="class")
+    def fit_test_instance(self, request, mock_engineered_features, mock_prices):
+        """INstantiate regressor and fit."""
+        fit_instance = request.param().fit(mock_engineered_features, mock_prices)
+
+        return fit_instance
+
+    @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
+    def fit_returns_self_test(self, fit_test_instance):
+        """Assert, that fit returns a fit instance of self."""
+        assert isinstance(fit_test_instance, BaseRegressor)
+
+    @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
+    def predict_with_labels_returns_tuple_of_prediction_and_report(
+        self, fit_test_instance, mock_engineered_features, mock_prices
+    ):
+        """Assert, that passing labels to predict will result in a prediction and report."""
+        actual, _ = fit_test_instance.predict(mock_engineered_features, mock_prices)
+
+        assert isinstance(actual, np.ndarray)
+
+    @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
+    def predict_without_labels_returns_tuple_of_prediction_and_report(
+        self, fit_test_instance, mock_engineered_features, mock_prices
+    ):
+        """Assert, that not passing labels to predict will result in a prediction and report."""
+        actual, _ = fit_test_instance.predict(mock_engineered_features, mock_prices)
+
+        assert isinstance(actual, np.ndarray)
