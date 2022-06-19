@@ -6,8 +6,21 @@ authors = ["Marco Caglia"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+ppscore = "^1.2.0"
+statsmodels = "^0.13.2"
+pandas = "^1.4.2"
+numpy = "^1.22.4"
 
 [tool.poetry.dev-dependencies]
+pycodestyle = "^2.8.0"
+pylint = "^2.14.2"
+black = "^22.3.0"
+pydocstyle = "^6.1.1"
+mypy = "^0.961"
+pytest = "^7.1.2"
+lorem = "^0.1.1"
+pylama = "^8.3.8"
+pep8 = "^1.7.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
