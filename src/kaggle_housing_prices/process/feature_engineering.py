@@ -79,7 +79,11 @@ class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
         }
 
     def transform(
-        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
+        self,
+        X: pd.DataFrame,
+        y: Union[npt.NDArray[np.float32], None] = None,
+        skip_report: bool = False,
+        **kwargs,
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         # Apply bayesian encoding
         X_prime = X.copy()
@@ -87,8 +91,15 @@ class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
         for col, mapping in self.bayesian_encoding_dict.items():
             X_prime[col] = X_prime[col].map(mapping)
 
+            X_prime[col] = X_prime[col].fillna(
+                value=X_prime[col].value_counts().index[0]
+            )
+
         # Get report
-        report = self._get_report(X_prime, y)
+        if not skip_report:
+            report = self._get_report(X_prime, y)
+        else:
+            report = {}
 
         # Type cast features
         X_prime = X_prime.astype(np.float32)
