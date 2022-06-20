@@ -64,7 +64,8 @@ class SklearnRegressor(BaseRegressor):
     ) -> None:
         """Initialize SklearnRegressor with regression_method.
 
-        Keyword arguments are passed to the regression method.
+        Keyword arguments are passed to the regression method if they are
+        applicable to the chosen method.
 
         Args:
             regression_method (BaseEstimator, optional): Sklearn class to use
@@ -89,6 +90,9 @@ class SklearnRegressor(BaseRegressor):
         self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
     ) -> Tuple[npt.NDArray[np.float32], Any]:
         y_hat = self.method.predict(X)
+
+        # The prediction can never be negative
+        y_hat[np.where(y_hat < 0)] = 0
 
         # Get reports
         independent_report = self._get_independent_report(y_hat)
