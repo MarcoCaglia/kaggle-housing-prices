@@ -31,6 +31,9 @@ class BasePriceModel(ABC):
                 Initialized Feature engineer.
             regressor (regression.BaseRegressor): Regressor instance.
         """
+        self.preprocessor = preprocessor
+        self.feature_engineer = feature_engineer
+        self.regressor = regressor
         for attr, value in kwargs.items():
             setattr(self, attr, value)
 
@@ -64,3 +67,56 @@ class BasePriceModel(ABC):
             Tuple[npt.NDArray[np.float32], Dict[str, Any]]: Tuple of prediction
                 and prediction report.
         """
+
+
+class PriceModel(BasePriceModel):
+    """Simple implementation of price model."""
+
+    def __init__(
+        self,
+        preprocessor: preprocessing.BasePreprocessor,
+        feature_engineer: feature_engineering.BaseFeatureEngineer,
+        regressor: regression.BaseRegressor,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            preprocessor=preprocessor,
+            feature_engineer=feature_engineer,
+            regressor=regressor,
+            **kwargs,
+        )
+
+    def fit(
+        self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
+    ) -> BasePriceModel:
+        # Fit transform with preprocessor
+        X_prime = self.preprocessor.fit(X).preprocess(X.copy())
+
+        # Fit transform with feature engineer
+        X_prime_fe, _ = self.feature_engineer.fit(X_prime, y).transform(
+            X_prime.copy(), skip_report=kwargs.get("skip_report", False)
+        )
+
+        # Fit the regressor
+        _ = self.regressor.fit(X_prime_fe, y)
+
+        return self
+
+    def predict(
+        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
+    ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
+        # Fit transform with preprocessor
+        X_prime = self.preprocessor.fit(X).preprocess(X.copy())
+
+        # Transform with feature engineer
+        X_prime_fe, fe_report = self.feature_engineer.transform(
+            X_prime.copy(), skip_report=kwargs.get("skip_report", False)
+        )
+
+        # Predict with regressor
+        prediction, prediction_report = self.regressor.predict(X_prime_fe, y)
+
+        # Compile report
+        report = {**fe_report, **prediction_report}
+
+        return prediction, report
