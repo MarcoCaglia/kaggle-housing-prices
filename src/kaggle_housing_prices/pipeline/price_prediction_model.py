@@ -14,7 +14,6 @@ from kaggle_housing_prices.process import feature_engineering, preprocessing, re
 class BasePriceModel(ABC):
     """Template class for price prediction model."""
 
-    @abstractmethod
     def __init__(
         self,
         preprocessor: preprocessing.BasePreprocessor,
@@ -37,6 +36,10 @@ class BasePriceModel(ABC):
         for attr, value in kwargs.items():
             setattr(self, attr, value)
 
+        # Declare empty results
+        self.engineered_features: pd.DataFrame = pd.DataFrame
+        self.predictions: npt.NDArray[np.float32] = np.array([])
+
     @abstractmethod
     def fit(
         self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
@@ -52,20 +55,28 @@ class BasePriceModel(ABC):
         """
 
     @abstractmethod
-    def predict(
-        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
+    def predict(self, X: pd.DataFrame, **kwargs) -> npt.NDArray[np.float32]:
         """Predict sales price.
 
         Args:
             X (pd.DataFrame): Raw, unprocessed features
-            y (Union[npt.NDArray[np.float32], None], optional): Observed sales
-                prices. If specified, the returned report will contain label
-                dependent variables. Defaults to None.
 
         Returns:
-            Tuple[npt.NDArray[np.float32], Dict[str, Any]]: Tuple of prediction
-                and prediction report.
+            npt.NDArray[np.float32]: Predicted prices.
+        """
+
+    @abstractmethod
+    def get_report(
+        self, y: Union[npt.NDArray[np.float32], None] = None
+    ) -> Dict[str, Any]:
+        """Return model report.
+
+        Args:
+            y (Union[npt.NDArray[np.float32], None], optional): Observed
+                prices. Defaults to None.
+
+        Returns:
+            Dict[str, Any]: Dictionary of
         """
 
 
@@ -90,12 +101,10 @@ class PriceModel(BasePriceModel):
         self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
     ) -> BasePriceModel:
         # Fit transform with preprocessor
-        X_prime = self.preprocessor.fit(X).preprocess(X.copy())
+        X_prime = self.preprocessor.fit(X).preprocess(X)
 
         # Fit transform with feature engineer
-        X_prime_fe, _ = self.feature_engineer.fit(X_prime, y).transform(
-            X_prime.copy(), skip_report=kwargs.get("skip_report", False)
-        )
+        X_prime_fe = self.feature_engineer.fit(X_prime, y).transform(X_prime)
 
         # Fit the regressor
         _ = self.regressor.fit(X_prime_fe, y)
@@ -104,19 +113,27 @@ class PriceModel(BasePriceModel):
 
     def predict(
         self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
+    ) -> npt.NDArray[np.float32]:
         # Fit transform with preprocessor
-        X_prime = self.preprocessor.fit(X).preprocess(X.copy())
+        X_prime = self.preprocessor.fit(X).preprocess(X)
 
         # Transform with feature engineer
-        X_prime_fe, fe_report = self.feature_engineer.transform(
-            X_prime.copy(), skip_report=kwargs.get("skip_report", False)
-        )
+        X_prime_fe = self.feature_engineer.transform(X_prime)
+        self.engineered_features = X_prime_fe
 
         # Predict with regressor
-        prediction, prediction_report = self.regressor.predict(X_prime_fe, y)
+        prediction = self.regressor.predict(X_prime_fe, y)
+        self.predictions = prediction
 
-        # Compile report
-        report = {**fe_report, **prediction_report}
+        return self.predictions
 
-        return prediction, report
+    def get_report(
+        self, y: Union[npt.NDArray[np.float32], None] = None
+    ) -> Dict[str, Any]:
+        # Get FE report
+        fe_report = self.feature_engineer.get_report(self.engineered_features, y)
+
+        # Get regression report
+        regression_report = self.regressor.get_report(self.predictions, y)
+
+        return {**fe_report, **regression_report}

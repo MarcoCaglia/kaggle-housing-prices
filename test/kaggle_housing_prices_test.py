@@ -203,10 +203,11 @@ class TestPricePredictionModel(CommonTestFixtures):
     def fit_test_instance(
         self, request, mock_features_with_missing_values, mock_prices
     ):
-        """Fit model to test to mock_data."""
+        """Fit model to test to mock_data and predict."""
         instance = request.param(
             Preprocessor(), BayesianEncodingFeatureEngineer(), SklearnRegressor()
         ).fit(mock_features_with_missing_values, mock_prices)
+        _ = instance.predict(mock_features_with_missing_values)
 
         return instance
 
@@ -221,13 +222,12 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Assert, that a call to predict returns a tuple of a prediction and a
         prediction report, if labels are passed."""
-        actual, report = fit_test_instance.predict(
+        actual = fit_test_instance.predict(
             mock_features_with_missing_values, mock_prices
         )
 
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
-        assert isinstance(report, dict)
 
     @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
     def predict_without_labels_returns_tuple_of_prediction_and_report_test(
@@ -235,8 +235,14 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Assert, that a call to predict returns a tuple of a prediction and a
         prediction report, if no labels are passed."""
-        actual, report = fit_test_instance.predict(mock_features_with_missing_values)
+        actual = fit_test_instance.predict(mock_features_with_missing_values)
 
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
-        assert isinstance(report, dict)
+
+    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    def get_report_returns_dict_test(self, fit_test_instance, mock_prices):
+        """Assert, that get_report returns a dictionary."""
+        actual = fit_test_instance.get_report(mock_prices)
+
+        check_type("report", actual, Dict[str, Any])
