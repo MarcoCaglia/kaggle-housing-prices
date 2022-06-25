@@ -55,7 +55,7 @@ class BaseFeatureEngineer(ABC):
         """Get feature engineering report.
 
         Args:
-            X_prime (pd.DataFrame): Engineered features
+            X_prime (pd.DataFrame): Engineered features.
             y (npt.NDArray[np.float32], None], optional): Observed prices. If
                 specified, additional, label-dependent metrics are returned.
                 Defaults to None.
@@ -113,7 +113,10 @@ class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
         return X_prime
 
     def get_report(
-        self, X_prime: pd.DataFrame, y: Union[npt.NDArray[np.float32], None], **kwargs
+        self,
+        X_prime: pd.DataFrame,
+        y: Union[npt.NDArray[np.float32], None] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         # Get engineering report, with more metrics, if y is specified
         independent_report = self._get_independent_report(X_prime)

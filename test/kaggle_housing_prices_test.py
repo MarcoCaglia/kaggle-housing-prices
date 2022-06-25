@@ -149,7 +149,7 @@ class TestFeatureEngineering(CommonTestFixtures):
         assert actual.to_numpy().dtype == np.float32
 
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
-    def get_report_retruns_dict_of_artifacts_test(
+    def get_report_returns_dict_of_artifacts_test(
         self, fit_instance, mock_engineered_data
     ):
         """Assert, that get_report returns returns the expected type."""
@@ -165,7 +165,7 @@ class TestRegressor(CommonTestFixtures):
 
     @pytest.fixture(scope="class")
     def fit_test_instance(self, request, mock_engineered_data):
-        """INstantiate regressor and fit."""
+        """Instantiate regressor and fit."""
         fit_instance = request.param().fit(
             mock_engineered_data[0], mock_engineered_data[1]
         )
@@ -178,24 +178,22 @@ class TestRegressor(CommonTestFixtures):
         assert isinstance(fit_test_instance, BaseRegressor)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_with_labels_returns_tuple_of_prediction_and_report_test(
-        self, fit_test_instance, mock_engineered_data
-    ):
+    def prediction_returns_array_test(self, fit_test_instance, mock_engineered_data):
         """Assert, that passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(
+        actual = fit_test_instance.predict(
             mock_engineered_data[0], mock_engineered_data[1]
         )
 
         assert isinstance(actual, np.ndarray)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_without_labels_returns_tuple_of_prediction_and_report_test(
-        self, fit_test_instance, mock_engineered_data
+    def get_report_returns_dict_of_artifacts_test(
+        self, fit_test_instance, mock_engineered_data, mock_prices
     ):
-        """Assert, that not passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(mock_engineered_data[0])
+        """Assert, that get_report returns returns the expected type."""
+        actual = fit_test_instance.get_report(mock_engineered_data[1], mock_prices)
 
-        assert isinstance(actual, np.ndarray)
+        check_type("report", actual, Dict[str, Any])
 
 
 class TestPricePredictionModel(CommonTestFixtures):
