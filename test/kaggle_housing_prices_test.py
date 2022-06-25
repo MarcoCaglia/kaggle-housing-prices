@@ -1,11 +1,12 @@
 """Test module for feature engineering."""
 
-from typing import List
+from typing import Any, Dict, List
 
 import lorem
 import numpy as np
 import pandas as pd
 import pytest
+from typeguard import check_type
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
     BayesianEncodingFeatureEngineer,
@@ -142,11 +143,21 @@ class TestFeatureEngineering(CommonTestFixtures):
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
     def transform_returns_pandas_df_test(self, fit_instance, mock_features):
         """Assert, that transform returns a numpy array."""
-        actual, report = fit_instance.transform(mock_features)
+        actual = fit_instance.transform(mock_features)
 
         assert isinstance(actual, pd.DataFrame)
         assert actual.to_numpy().dtype == np.float32
-        assert isinstance(report, dict)
+
+    @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
+    def get_report_retruns_dict_of_artifacts_test(
+        self, fit_instance, mock_engineered_data
+    ):
+        """Assert, that get_report returns returns the expected type."""
+        actual = fit_instance.get_report(
+            mock_engineered_data[0], mock_engineered_data[1]
+        )
+
+        check_type("report", actual, Dict[str, Any])
 
 
 class TestRegressor(CommonTestFixtures):

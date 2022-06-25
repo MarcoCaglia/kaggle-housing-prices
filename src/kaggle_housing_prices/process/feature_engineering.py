@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -15,11 +15,8 @@ import ppscore
 class BaseFeatureEngineer(ABC):
     """Template Feature Engineering class."""
 
-    @abstractmethod
     def __init__(self, **kwargs) -> None:
         """Initialize FeatureEngineer."""
-        # The report will be populated as part of the fitting process
-        self.report: Dict[str, Any] = {}
         for attr, value in kwargs.items():
             setattr(self, attr, value)
 
@@ -38,9 +35,7 @@ class BaseFeatureEngineer(ABC):
         """
 
     @abstractmethod
-    def transform(
-        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    def transform(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Apply fit transformation to input data.
 
         Args:
@@ -48,6 +43,25 @@ class BaseFeatureEngineer(ABC):
 
         Returns:
             npt.NDArray[np.float32]: Engineered features.
+        """
+
+    @abstractmethod
+    def get_report(
+        self,
+        X_prime: pd.DataFrame,
+        y: Union[npt.NDArray[np.float32], None] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Get feature engineering report.
+
+        Args:
+            X_prime (pd.DataFrame): Engineered features
+            y (npt.NDArray[np.float32], None], optional): Observed prices. If
+                specified, additional, label-dependent metrics are returned.
+                Defaults to None.
+
+        Returns:
+            Dict[str, Any]: Dictionary of EDA artifacts.
         """
 
 
@@ -81,10 +95,8 @@ class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
     def transform(
         self,
         X: pd.DataFrame,
-        y: Union[npt.NDArray[np.float32], None] = None,
-        skip_report: bool = False,
         **kwargs,
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    ) -> pd.DataFrame:
         # Apply bayesian encoding
         X_prime = X.copy()
 
@@ -95,19 +107,13 @@ class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
                 value=X_prime[col].value_counts().index[0]
             )
 
-        # Get report
-        if not skip_report:
-            report = self._get_report(X_prime, y)
-        else:
-            report = {}
-
         # Type cast features
         X_prime = X_prime.astype(np.float32)
 
-        return X_prime, report
+        return X_prime
 
-    def _get_report(
-        self, X_prime: pd.DataFrame, y: Union[npt.NDArray[np.float32], None]
+    def get_report(
+        self, X_prime: pd.DataFrame, y: Union[npt.NDArray[np.float32], None], **kwargs
     ) -> Dict[str, Any]:
         # Get engineering report, with more metrics, if y is specified
         independent_report = self._get_independent_report(X_prime)
