@@ -1,11 +1,12 @@
 """Test module for feature engineering."""
 
-from typing import List
+from typing import Any, Dict, List
 
 import lorem
 import numpy as np
 import pandas as pd
 import pytest
+from typeguard import check_type
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
     BayesianEncodingFeatureEngineer,
@@ -142,11 +143,21 @@ class TestFeatureEngineering(CommonTestFixtures):
     @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
     def transform_returns_pandas_df_test(self, fit_instance, mock_features):
         """Assert, that transform returns a numpy array."""
-        actual, report = fit_instance.transform(mock_features)
+        actual = fit_instance.transform(mock_features)
 
         assert isinstance(actual, pd.DataFrame)
         assert actual.to_numpy().dtype == np.float32
-        assert isinstance(report, dict)
+
+    @pytest.mark.parametrize("fit_instance", FEATURE_ENGINEERS_TO_TEST, indirect=True)
+    def get_report_returns_dict_of_artifacts_test(
+        self, fit_instance, mock_engineered_data
+    ):
+        """Assert, that get_report returns returns the expected type."""
+        actual = fit_instance.get_report(
+            mock_engineered_data[0], mock_engineered_data[1]
+        )
+
+        check_type("report", actual, Dict[str, Any])
 
 
 class TestRegressor(CommonTestFixtures):
@@ -154,7 +165,7 @@ class TestRegressor(CommonTestFixtures):
 
     @pytest.fixture(scope="class")
     def fit_test_instance(self, request, mock_engineered_data):
-        """INstantiate regressor and fit."""
+        """Instantiate regressor and fit."""
         fit_instance = request.param().fit(
             mock_engineered_data[0], mock_engineered_data[1]
         )
@@ -167,24 +178,22 @@ class TestRegressor(CommonTestFixtures):
         assert isinstance(fit_test_instance, BaseRegressor)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_with_labels_returns_tuple_of_prediction_and_report_test(
-        self, fit_test_instance, mock_engineered_data
-    ):
+    def prediction_returns_array_test(self, fit_test_instance, mock_engineered_data):
         """Assert, that passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(
+        actual = fit_test_instance.predict(
             mock_engineered_data[0], mock_engineered_data[1]
         )
 
         assert isinstance(actual, np.ndarray)
 
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
-    def predict_without_labels_returns_tuple_of_prediction_and_report_test(
-        self, fit_test_instance, mock_engineered_data
+    def get_report_returns_dict_of_artifacts_test(
+        self, fit_test_instance, mock_engineered_data, mock_prices
     ):
-        """Assert, that not passing labels to predict will result in a prediction and report."""
-        actual, _ = fit_test_instance.predict(mock_engineered_data[0])
+        """Assert, that get_report returns returns the expected type."""
+        actual = fit_test_instance.get_report(mock_engineered_data[1], mock_prices)
 
-        assert isinstance(actual, np.ndarray)
+        check_type("report", actual, Dict[str, Any])
 
 
 class TestPricePredictionModel(CommonTestFixtures):
@@ -194,10 +203,11 @@ class TestPricePredictionModel(CommonTestFixtures):
     def fit_test_instance(
         self, request, mock_features_with_missing_values, mock_prices
     ):
-        """Fit model to test to mock_data."""
+        """Fit model to test to mock_data and predict."""
         instance = request.param(
             Preprocessor(), BayesianEncodingFeatureEngineer(), SklearnRegressor()
         ).fit(mock_features_with_missing_values, mock_prices)
+        _ = instance.predict(mock_features_with_missing_values)
 
         return instance
 
@@ -212,13 +222,12 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Assert, that a call to predict returns a tuple of a prediction and a
         prediction report, if labels are passed."""
-        actual, report = fit_test_instance.predict(
+        actual = fit_test_instance.predict(
             mock_features_with_missing_values, mock_prices
         )
 
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
-        assert isinstance(report, dict)
 
     @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
     def predict_without_labels_returns_tuple_of_prediction_and_report_test(
@@ -226,8 +235,14 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Assert, that a call to predict returns a tuple of a prediction and a
         prediction report, if no labels are passed."""
-        actual, report = fit_test_instance.predict(mock_features_with_missing_values)
+        actual = fit_test_instance.predict(mock_features_with_missing_values)
 
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
-        assert isinstance(report, dict)
+
+    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    def get_report_returns_dict_test(self, fit_test_instance, mock_prices):
+        """Assert, that get_report returns a dictionary."""
+        actual = fit_test_instance.get_report(mock_prices)
+
+        check_type("report", actual, Dict[str, Any])
