@@ -16,7 +16,6 @@ from sklearn.metrics import mean_squared_error, mean_squared_log_error, r2_score
 class BaseRegressor(ABC):
     """Template class for classification classes."""
 
-    @abstractmethod
     def __init__(self, **kwargs) -> None:
         """Initialize regressor class."""
         for attr, value in kwargs.items():
@@ -37,22 +36,36 @@ class BaseRegressor(ABC):
         """
 
     @abstractmethod
-    def predict(
-        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> Tuple[npt.NDArray[np.float32], Any]:
+    def predict(self, X: pd.DataFrame, **kwargs) -> npt.NDArray[np.float32]:
         """Predict labels from engineered input features.
+
+        Args:
+            X (pd.DataFrame): Engineered input features.
+
+        Returns:
+            npt.NDArray[np.float32]: Predicted values.
+        """
+
+    @abstractmethod
+    def get_report(
+        self,
+        y_hat: npt.NDArray[np.float32],
+        y: Union[npt.NDArray[np.float32], None] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Get regression report.
 
         If observed prices are included, the regression report will include
         additional label-dependent metrics.
 
         Args:
-            X (pd.DataFrame): Engineered input features.
-            y (Union[npt.NDArray[np.float32], None], optional): Observed
-                labels. Defaults to None.
+            y_hat (npt.NDArray[np.float32]): Predicted values.
+            y (npt.NDArray[np.float32], None], optional): Observed prices. If
+                specified, additional, label-dependent metrics are returned.
+                Defaults to None.
 
         Returns:
-            Tuple[npt.NDArray[np.float32], Any]: Tuple of predicted values and
-                regression metrics.
+            Dict[str, Any]: Dictionary of EDA artifacts.
         """
 
 
@@ -88,12 +101,20 @@ class SklearnRegressor(BaseRegressor):
 
     def predict(  # noqa
         self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> Tuple[npt.NDArray[np.float32], Any]:
+    ) -> npt.NDArray[np.float32]:
         y_hat = self.method.predict(X)
 
         # The prediction can never be negative
         y_hat[np.where(y_hat < 0)] = 0
 
+        return y_hat
+
+    def get_report(
+        self,
+        y_hat: npt.NDArray[np.float32],
+        y: Union[npt.NDArray[np.float32], None] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         # Get reports
         independent_report = self._get_independent_report(y_hat)
         if y is not None:
@@ -104,7 +125,7 @@ class SklearnRegressor(BaseRegressor):
         # Compile full report
         report = {**independent_report, **dependent_report}
 
-        return y_hat, report
+        return report
 
     def _get_independent_report(self, y_hat: npt.NDArray[np.float32]) -> Dict[str, Any]:
         # Get report solely based on prediction.
