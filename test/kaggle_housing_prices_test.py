@@ -34,6 +34,7 @@ class CommonTestFixtures:
     INT_FEATURE_NAME = "int_feature"
     FLOAT_FEATURE_NAME = "float_feature"
     CATEGORICAL_FEATURE_NAME = "string_feature"
+    NULL_FEATURE_NAME = "null_feature"
     ID_COLUMN = "Id"
     NUM_RANGE = (0, 1_000)
     CATEGORIES = lorem.data.WORDS[:5]
@@ -83,6 +84,7 @@ class CommonTestFixtures:
         mock_features_missing = mock_features.applymap(
             lambda value: np.NaN if RNG.uniform() < 0.1 else value
         )
+        mock_features_missing[self.NULL_FEATURE_NAME] = np.NaN
 
         return mock_features_missing
 
@@ -126,6 +128,7 @@ class TestPreprocessing(CommonTestFixtures):
         assert isinstance(actual, pd.DataFrame)
         assert actual.isna().sum().sum() == 0
         assert actual.index.name == self.ID_COLUMN
+        assert actual[self.NULL_FEATURE_NAME].unique().tolist() == [True]
 
 
 class TestFeatureEngineering(CommonTestFixtures):
