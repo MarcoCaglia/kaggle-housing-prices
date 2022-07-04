@@ -43,23 +43,47 @@ class BasePreprocessor(ABC):
 class Preprocessor(BasePreprocessor):
     """First iteration of preprocessing."""
 
-    def __init__(self, threshold_for_categorical: int = 30, **kwargs) -> None:
+    ID_COLUMN = "Id"
+
+    def __init__(
+        self,
+        threshold_for_categorical: int = 30,
+        threshold_for_boolean: float = 0.5,
+        **kwargs,
+    ) -> None:
         """Initialize preprocessor.
 
         Args:
             threshold_for_categorical (int, optional): Number of maximum unique
                 values above which an object variable is no longer considered
                 categorical. Defaults to 30.
+            threshold_for_boolean (int, optional): Sets the share of values in
+                a column above which the column will be converted to a boolean
+                feature, where the boolean indicates whether the value was
+                missing or not.
         """
         self.threshold_for_categorical = threshold_for_categorical
-        self.cat_columns: List = []
+        self.cat_columns: List[str] = []
         self.imputation_values: Dict[str, Union[str, float, int]] = {}
+        self.threshold_for_boolean = threshold_for_boolean
+        self.boolean_columns: List[str] = []
         super().__init__(**kwargs)
 
     def fit(self, X: pd.DataFrame, **kwargs) -> BasePreprocessor:  # noqa
+        # Find columns which are to be converted to boolean
+        self.boolean_columns = [
+            col
+            for col in X.columns
+            if self._check_boolean(X[col])
+            if col != self.ID_COLUMN
+        ]
+
         # Find categorical columns
         self.cat_columns = [
-            col for col in X.columns if self._check_if_categorical(X[col])
+            col
+            for col in X.columns
+            if self._check_if_categorical(X[col])
+            if (col != self.ID_COLUMN) and (col not in self.boolean_columns)
         ]
 
         # Find imputation values per column
@@ -68,9 +92,15 @@ class Preprocessor(BasePreprocessor):
             if col not in self.cat_columns
             else X[col].value_counts().index[0]
             for col in X.columns
+            if col != self.ID_COLUMN
         }
 
         return self
+
+    def _check_boolean(self, column: pd.Series) -> bool:
+        # Check if the number of missing values in the passed column
+        # reaches the threshold
+        return column.isna().mean() >= self.threshold_for_boolean
 
     def _check_if_categorical(self, column: pd.Series) -> bool:
         # Check if a column is categorical
@@ -79,6 +109,13 @@ class Preprocessor(BasePreprocessor):
         )
 
     def preprocess(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:  # noqa
+        # Set ID Column as table index
+        X = X.set_index(self.ID_COLUMN)
+
+        # Convert boolean columns to boolean
+        for col in self.boolean_columns:
+            X[col] = X[col].isna()
+
         # Impute missing values
         X = X.fillna(self.imputation_values)
 
