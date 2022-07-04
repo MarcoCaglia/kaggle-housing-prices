@@ -92,7 +92,7 @@ class Preprocessor(BasePreprocessor):
             if col not in self.cat_columns
             else X[col].value_counts().index[0]
             for col in X.columns
-            if col != self.ID_COLUMN
+            if (col != self.ID_COLUMN) and (col not in self.boolean_columns)
         }
 
         return self
@@ -104,7 +104,7 @@ class Preprocessor(BasePreprocessor):
 
     def _check_if_categorical(self, column: pd.Series) -> bool:
         # Check if a column is categorical
-        return (column.dtype == "object") and (
+        return (column.dtype == "object") or (
             column.nunique() <= self.threshold_for_categorical
         )
 
