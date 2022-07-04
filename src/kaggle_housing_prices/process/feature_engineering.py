@@ -65,7 +65,7 @@ class BaseFeatureEngineer(ABC):
         """
 
 
-class BayesianEncodingFeatureEngineer(BaseFeatureEngineer):
+class TargetEncodingFeatureEngineer(BaseFeatureEngineer):
     def __init__(self, **kwargs) -> None:
         self.bayesian_encoding_dict: Dict[str, Dict[str, float]] = {}
         super().__init__(**kwargs)

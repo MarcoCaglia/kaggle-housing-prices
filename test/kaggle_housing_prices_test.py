@@ -9,7 +9,7 @@ import pytest
 from typeguard import check_type
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
-    BayesianEncodingFeatureEngineer,
+    TargetEncodingFeatureEngineer,
 )
 from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
 from kaggle_housing_prices.process.regression import BaseRegressor, SklearnRegressor
@@ -20,7 +20,7 @@ from kaggle_housing_prices.pipeline.price_prediction_model import (
 )
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
-FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [BayesianEncodingFeatureEngineer]
+FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [TargetEncodingFeatureEngineer]
 REGRESSORS_TO_TEST: List[BaseRegressor] = [SklearnRegressor]
 MODELS_TO_TEST: List[BasePriceModel] = [PriceModel]
 
@@ -205,7 +205,7 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Fit model to test to mock_data and predict."""
         instance = request.param(
-            Preprocessor(), BayesianEncodingFeatureEngineer(), SklearnRegressor()
+            Preprocessor(), TargetEncodingFeatureEngineer(), SklearnRegressor()
         ).fit(mock_features_with_missing_values, mock_prices)
         _ = instance.predict(mock_features_with_missing_values)
 
