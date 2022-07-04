@@ -43,6 +43,8 @@ class BasePreprocessor(ABC):
 class Preprocessor(BasePreprocessor):
     """First iteration of preprocessing."""
 
+    ID_COLUMN = "Id"
+
     def __init__(self, threshold_for_categorical: int = 30, **kwargs) -> None:
         """Initialize preprocessor.
 
@@ -59,7 +61,10 @@ class Preprocessor(BasePreprocessor):
     def fit(self, X: pd.DataFrame, **kwargs) -> BasePreprocessor:  # noqa
         # Find categorical columns
         self.cat_columns = [
-            col for col in X.columns if self._check_if_categorical(X[col])
+            col
+            for col in X.columns
+            if self._check_if_categorical(X[col])
+            if col != self.ID_COLUMN
         ]
 
         # Find imputation values per column
@@ -68,6 +73,7 @@ class Preprocessor(BasePreprocessor):
             if col not in self.cat_columns
             else X[col].value_counts().index[0]
             for col in X.columns
+            if col != self.ID_COLUMN
         }
 
         return self
@@ -79,6 +85,9 @@ class Preprocessor(BasePreprocessor):
         )
 
     def preprocess(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:  # noqa
+        # Set ID Column as table index
+        X = X.set_index(self.ID_COLUMN)
+
         # Impute missing values
         X = X.fillna(self.imputation_values)
 

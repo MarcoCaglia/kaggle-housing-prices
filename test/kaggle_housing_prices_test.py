@@ -34,6 +34,7 @@ class CommonTestFixtures:
     INT_FEATURE_NAME = "int_feature"
     FLOAT_FEATURE_NAME = "float_feature"
     CATEGORICAL_FEATURE_NAME = "string_feature"
+    ID_COLUMN = "Id"
     NUM_RANGE = (0, 1_000)
     CATEGORIES = lorem.data.WORDS[:5]
     NUM_SAMPLES = 1_000
@@ -62,6 +63,7 @@ class CommonTestFixtures:
         mock_df[self.CATEGORICAL_FEATURE_NAME] = mock_df[
             self.CATEGORICAL_FEATURE_NAME
         ].astype("category")
+        mock_df[self.ID_COLUMN] = range(self.NUM_SAMPLES)
 
         return mock_df
 
@@ -123,6 +125,7 @@ class TestPreprocessing(CommonTestFixtures):
 
         assert isinstance(actual, pd.DataFrame)
         assert actual.isna().sum().sum() == 0
+        assert actual.index.name == self.ID_COLUMN
 
 
 class TestFeatureEngineering(CommonTestFixtures):
