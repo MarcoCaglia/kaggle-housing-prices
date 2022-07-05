@@ -9,8 +9,15 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from sklearn.base import BaseEstimator
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import (
+    AdaBoostRegressor,
+    GradientBoostingRegressor,
+    RandomForestRegressor,
+    VotingRegressor,
+)
+from sklearn.linear_model import LassoCV, Ridge
 from sklearn.metrics import mean_squared_error, mean_squared_log_error, r2_score
+from sklearn.svm import SVR
 
 
 class BaseRegressor(ABC):
@@ -99,9 +106,7 @@ class SklearnRegressor(BaseRegressor):
 
         return self
 
-    def predict(  # noqa
-        self, X: pd.DataFrame, y: Union[npt.NDArray[np.float32], None] = None, **kwargs
-    ) -> npt.NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame, **kwargs) -> npt.NDArray[np.float32]:  # noqa
         y_hat = self.method.predict(X)
 
         # The prediction can never be negative
@@ -157,3 +162,71 @@ class SklearnRegressor(BaseRegressor):
         report["root_msle"] = report.get("msle") ** (1 / 2)
 
         return report
+
+
+class DefaultEstimators:
+    """Holds default estimators for MetaRegressor."""
+
+    default_estimators = (
+        ("grad_boost", GradientBoostingRegressor()),
+        ("ada_boost", AdaBoostRegressor()),
+        ("rad_for", RandomForestRegressor()),
+        ("ridge", Ridge()),
+        ("svr", SVR()),
+    )
+
+
+class MetaRegressor(VotingRegressor, SklearnRegressor):
+    """Implements meta regression by combining regression results."""
+
+    def __init__(
+        self,
+        estimators=DefaultEstimators.default_estimators,
+    ):
+        super().__init__(estimators)
+
+    def fit(
+        self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
+    ) -> BaseRegressor:
+        # Fit all estimators
+        for _, model in self.estimators:
+            model.fit(X, y)
+
+        # Get meta training data
+        meta_features = self._get_meta_features(X)
+
+        # Train Meta Regressor
+        self.meta_regressor = LassoCV(selection="random")
+        self.meta_regressor.fit(meta_features, y)
+
+        return self
+
+    def predict(self, X: pd.DataFrame, **kwargs) -> npt.NDArray[np.float32]:
+        # Generate meta features
+        meta_features = self._get_meta_features(X)
+
+        # Make prediction
+        prediction = self.meta_regressor.predict(meta_features).astype(np.float32)
+
+        return prediction
+
+    def _get_meta_features(self, X: Union[pd.DataFrame, npt.NDArray]):
+        # Returns features, with additional regression encodings
+        meta_features = np.hstack(
+            [self._get_array(X)]
+            + [model.predict(X).reshape(-1, 1) for _, model in self.estimators]
+        )
+
+        return meta_features
+
+    @staticmethod
+    def _get_array(X: Union[pd.DataFrame, npt.NDArray]) -> npt.NDArray:
+        # Gets the matrix of X if X is a dataframe, otherwise, returns X
+        if isinstance(X, pd.DataFrame):
+            return X.to_numpy()
+        elif isinstance(X, np.ndarray):
+            return X
+        else:
+            raise AssertionError(
+                f"X is neither pandas DF nor numpy array; got {type(X)}"
+            )
