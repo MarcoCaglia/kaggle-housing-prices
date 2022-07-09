@@ -122,7 +122,7 @@ class PriceModel(BasePriceModel):
         self.engineered_features = X_prime_fe
 
         # Predict with regressor
-        prediction = self.regressor.predict(X_prime_fe, y)
+        prediction = self.regressor.predict(X_prime_fe)
         self.predictions = prediction
 
         return self.predictions

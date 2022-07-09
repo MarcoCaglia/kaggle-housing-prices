@@ -5,7 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 
+import numpy.typing as npt
 import pandas as pd
+from sklearn.base import TransformerMixin
 
 
 class BasePreprocessor(ABC):
@@ -92,7 +94,7 @@ class Preprocessor(BasePreprocessor):
             if col not in self.cat_columns
             else X[col].value_counts().index[0]
             for col in X.columns
-            if col != self.ID_COLUMN
+            if (col != self.ID_COLUMN) and (col not in self.boolean_columns)
         }
 
         return self
@@ -104,7 +106,7 @@ class Preprocessor(BasePreprocessor):
 
     def _check_if_categorical(self, column: pd.Series) -> bool:
         # Check if a column is categorical
-        return (column.dtype == "object") and (
+        return (column.dtype == "object") or (
             column.nunique() <= self.threshold_for_categorical
         )
 
@@ -123,3 +125,15 @@ class Preprocessor(BasePreprocessor):
         X.loc[:, self.cat_columns] = X.loc[:, self.cat_columns].astype("category")
 
         return X
+
+
+class PreprocessingTransformer(TransformerMixin, Preprocessor):
+    """Adapt preprocessor for usage inside Sklearn Pipelines."""
+
+    def fit(self, X: pd.DataFrame, y: npt.NDArray = None, **kwargs) -> BasePreprocessor:
+        return super().fit(X, **kwargs)
+
+    def transform(
+        self, X: pd.DataFrame, y: npt.NDArray = None, **kwargs
+    ) -> npt.NDarray:
+        return super().preprocess(X, **kwargs)
