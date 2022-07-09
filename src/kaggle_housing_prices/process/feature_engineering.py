@@ -8,8 +8,9 @@ from typing import Any, Dict, Union
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from statsmodels.stats.outliers_influence import variance_inflation_factor
 import ppscore
+from sklearn.base import TransformerMixin
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
 class BaseFeatureEngineer(ABC):
@@ -161,3 +162,7 @@ class TargetEncodingFeatureEngineer(BaseFeatureEngineer):
         report["predictive_power"] = [ppscore.score(df, col, "y") for col in X.columns]
 
         return report
+
+
+class TargetEncodingTransformer(TransformerMixin, TargetEncodingFeatureEngineer):
+    pass

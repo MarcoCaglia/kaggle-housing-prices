@@ -6,22 +6,26 @@ import lorem
 import numpy as np
 import pandas as pd
 import pytest
-from typeguard import check_type
+from kaggle_housing_prices.pipeline.price_prediction_model import (
+    BasePriceModel,
+    PriceModel,
+)
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
     TargetEncodingFeatureEngineer,
 )
 from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
-from kaggle_housing_prices.process.regression import BaseRegressor, SklearnRegressor
-from sklearn.datasets import make_regression
-from kaggle_housing_prices.pipeline.price_prediction_model import (
-    BasePriceModel,
-    PriceModel,
+from kaggle_housing_prices.process.regression import (
+    BaseRegressor,
+    MetaRegressor,
+    SklearnRegressor,
 )
+from sklearn.datasets import make_regression
+from typeguard import check_type
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
 FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [TargetEncodingFeatureEngineer]
-REGRESSORS_TO_TEST: List[BaseRegressor] = [SklearnRegressor]
+REGRESSORS_TO_TEST: List[BaseRegressor] = [SklearnRegressor, MetaRegressor]
 MODELS_TO_TEST: List[BasePriceModel] = [PriceModel]
 
 RANDOM_SEED = 42
@@ -186,9 +190,7 @@ class TestRegressor(CommonTestFixtures):
     @pytest.mark.parametrize("fit_test_instance", REGRESSORS_TO_TEST, indirect=True)
     def prediction_returns_array_test(self, fit_test_instance, mock_engineered_data):
         """Assert, that passing labels to predict will result in a prediction and report."""
-        actual = fit_test_instance.predict(
-            mock_engineered_data[0], mock_engineered_data[1]
-        )
+        actual = fit_test_instance.predict(mock_engineered_data[0])
 
         assert isinstance(actual, np.ndarray)
 
