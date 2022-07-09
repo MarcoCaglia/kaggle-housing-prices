@@ -184,6 +184,7 @@ class MetaRegressor(VotingRegressor, SklearnRegressor):
         estimators=DefaultEstimators.default_estimators,
     ):
         super().__init__(estimators)
+        self.meta_regressor = LassoCV(selection="random")
 
     def fit(
         self, X: pd.DataFrame, y: npt.NDArray[np.float32], **kwargs
@@ -196,7 +197,7 @@ class MetaRegressor(VotingRegressor, SklearnRegressor):
         meta_features = self._get_meta_features(X)
 
         # Train Meta Regressor
-        self.meta_regressor = LassoCV(selection="random")
+
         self.meta_regressor.fit(meta_features, y)
 
         return self

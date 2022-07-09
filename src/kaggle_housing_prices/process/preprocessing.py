@@ -5,7 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 
+import numpy.typing as npt
 import pandas as pd
+from sklearn.base import TransformerMixin
 
 
 class BasePreprocessor(ABC):
@@ -123,3 +125,15 @@ class Preprocessor(BasePreprocessor):
         X.loc[:, self.cat_columns] = X.loc[:, self.cat_columns].astype("category")
 
         return X
+
+
+class PreprocessingTransformer(TransformerMixin, Preprocessor):
+    """Adapt preprocessor for usage inside Sklearn Pipelines."""
+
+    def fit(self, X: pd.DataFrame, y: npt.NDArray = None, **kwargs) -> BasePreprocessor:
+        return super().fit(X, **kwargs)
+
+    def transform(
+        self, X: pd.DataFrame, y: npt.NDArray = None, **kwargs
+    ) -> npt.NDarray:
+        return super().preprocess(X, **kwargs)
