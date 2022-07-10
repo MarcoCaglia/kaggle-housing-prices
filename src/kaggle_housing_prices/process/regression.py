@@ -172,7 +172,6 @@ class DefaultEstimators:
         ("ada_boost", AdaBoostRegressor()),
         ("rad_for", RandomForestRegressor()),
         ("ridge", Ridge()),
-        ("svr", SVR()),
     )
 
 
