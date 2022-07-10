@@ -9,12 +9,18 @@ import pytest
 from kaggle_housing_prices.pipeline.price_prediction_model import (
     BasePriceModel,
     PriceModel,
+    PricePredictionPipeline,
 )
 from kaggle_housing_prices.process.feature_engineering import (
     BaseFeatureEngineer,
     TargetEncodingFeatureEngineer,
+    OutlierMarker,
 )
-from kaggle_housing_prices.process.preprocessing import BasePreprocessor, Preprocessor
+from kaggle_housing_prices.process.preprocessing import (
+    BasePreprocessor,
+    PreprocessingTransformer,
+    Preprocessor,
+)
 from kaggle_housing_prices.process.regression import (
     BaseRegressor,
     MetaRegressor,
@@ -24,9 +30,11 @@ from sklearn.datasets import make_regression
 from typeguard import check_type
 
 PREPROCESSORS_TO_TEST: List[BasePreprocessor] = [Preprocessor]
-FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [TargetEncodingFeatureEngineer]
+FEATURE_ENGINEERS_TO_TEST: List[BaseFeatureEngineer] = [
+    TargetEncodingFeatureEngineer,
+]
 REGRESSORS_TO_TEST: List[BaseRegressor] = [SklearnRegressor, MetaRegressor]
-MODELS_TO_TEST: List[BasePriceModel] = [PriceModel]
+MODELS_TO_TEST: List[BasePriceModel] = [PriceModel, PricePredictionPipeline]
 
 RANDOM_SEED = 42
 RNG = np.random.default_rng(seed=RANDOM_SEED)
@@ -42,7 +50,7 @@ class CommonTestFixtures:
     ID_COLUMN = "Id"
     NUM_RANGE = (0, 1_000)
     CATEGORIES = lorem.data.WORDS[:5]
-    NUM_SAMPLES = 1_000
+    NUM_SAMPLES = 50
     NUM_ENGINEERED_FEATURES = 10
 
     @pytest.fixture(scope="class")
@@ -213,18 +221,22 @@ class TestPricePredictionModel(CommonTestFixtures):
     ):
         """Fit model to test to mock_data and predict."""
         instance = request.param(
-            Preprocessor(), TargetEncodingFeatureEngineer(), SklearnRegressor()
+            PreprocessingTransformer(),
+            TargetEncodingFeatureEngineer(),
+            MetaRegressor(),
+            n_iter=1,
+            n_points=1,
         ).fit(mock_features_with_missing_values, mock_prices)
         _ = instance.predict(mock_features_with_missing_values)
 
         return instance
 
-    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    @pytest.mark.parametrize("fit_test_instance", [PriceModel], indirect=True)
     def fit_returns_self_test(self, fit_test_instance):
         """Assert, that fit returned a fit method of self."""
         assert isinstance(fit_test_instance, BasePriceModel)
 
-    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    @pytest.mark.parametrize("fit_test_instance", [PriceModel], indirect=True)
     def predict_with_labels_returns_tuple_of_prediction_and_report_test(
         self, fit_test_instance, mock_features_with_missing_values, mock_prices
     ):
@@ -237,7 +249,7 @@ class TestPricePredictionModel(CommonTestFixtures):
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
 
-    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    @pytest.mark.parametrize("fit_test_instance", [PriceModel], indirect=True)
     def predict_without_labels_returns_tuple_of_prediction_and_report_test(
         self, fit_test_instance, mock_features_with_missing_values
     ):
@@ -248,9 +260,55 @@ class TestPricePredictionModel(CommonTestFixtures):
         assert isinstance(actual, np.ndarray)
         assert actual.shape == (self.NUM_SAMPLES,)
 
-    @pytest.mark.parametrize("fit_test_instance", MODELS_TO_TEST, indirect=True)
+    @pytest.mark.parametrize("fit_test_instance", [PriceModel], indirect=True)
     def get_report_returns_dict_test(self, fit_test_instance, mock_prices):
         """Assert, that get_report returns a dictionary."""
         actual = fit_test_instance.get_report(mock_prices)
+
+        check_type("report", actual, Dict[str, Any])
+
+
+class TestPricePredictionModelPipeline(TestPricePredictionModel):
+    """Test extension for sklearn pipeline-like object."""
+
+    @pytest.mark.parametrize(
+        "fit_test_instance", [PricePredictionPipeline], indirect=True
+    )
+    def fit_returns_self_test(self, fit_test_instance):
+        """Assert, that fit returned a fit method of self."""
+        super().fit_returns_self_test(fit_test_instance)
+
+    @pytest.mark.parametrize(
+        "fit_test_instance", [PricePredictionPipeline], indirect=True
+    )
+    def predict_with_labels_returns_tuple_of_prediction_and_report_test(
+        self, fit_test_instance, mock_features_with_missing_values, mock_prices
+    ):
+        """Assert, that a call to predict returns a tuple of a prediction and a
+        prediction report, if labels are passed."""
+        super().predict_with_labels_returns_tuple_of_prediction_and_report_test(
+            fit_test_instance, mock_features_with_missing_values, mock_prices
+        )
+
+    @pytest.mark.parametrize(
+        "fit_test_instance", [PricePredictionPipeline], indirect=True
+    )
+    def predict_without_labels_returns_tuple_of_prediction_and_report_test(
+        self, fit_test_instance, mock_features_with_missing_values
+    ):
+        """Assert, that a call to predict returns a tuple of a prediction and a
+        prediction report, if no labels are passed."""
+        super().predict_without_labels_returns_tuple_of_prediction_and_report_test(
+            fit_test_instance, mock_features_with_missing_values
+        )
+
+    @pytest.mark.parametrize(
+        "fit_test_instance", [PricePredictionPipeline], indirect=True
+    )
+    def get_report_returns_dict_test(
+        self, fit_test_instance, mock_features, mock_prices
+    ):
+        """Assert, that get_report returns a dictionary."""
+        actual = fit_test_instance.get_report(mock_features, mock_prices)
 
         check_type("report", actual, Dict[str, Any])
