@@ -10,6 +10,7 @@ import numpy.typing as npt
 import pandas as pd
 import ppscore
 from sklearn.base import TransformerMixin
+from sklearn.ensemble import IsolationForest
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
@@ -166,3 +167,11 @@ class TargetEncodingFeatureEngineer(BaseFeatureEngineer):
 
 class TargetEncodingTransformer(TransformerMixin, TargetEncodingFeatureEngineer):
     pass
+
+
+class OutlierMarker(IsolationForest):
+    """Mark outliers."""
+
+    def transform(self, X):
+        outlier_factor = super().predict(X).reshape(-1, 1)
+        return np.hstack([X, outlier_factor])
